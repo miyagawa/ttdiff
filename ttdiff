@@ -1,0 +1,103 @@
+#!/usr/local/bin/perl
+use strict;
+use vars qw($VERSION);
+$VERSION = 0.01;
+
+=head1 NAME
+
+ttdiff - find difference between structures of two TT templates
+
+=head1 SYNOPSIS
+
+  ttdiff file1 file2
+
+=head1 DESCRIPTION
+
+C<ttdiff> is a command line tool to find structured difference between
+two TT templates. It may be quite useful for checking before your
+co-working designer fixes up your bare-bone template into production
+ready design. What you should check is just run C<ttdiff> against your
+template and the final template to see any typos or losing in
+migration are there.
+
+=head1 PREREQUISTICS
+
+=over 4
+
+=item *
+
+Template-Toolkit 2.07
+
+=item *
+
+Text::Diff 0.32
+
+=back
+
+=head1 AUTHOR
+
+Tatsuhiko Miyagawa E<lt>miyagawa@bulknews.netE<gt>
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+L<Template>, L<Text::Diff>
+
+=cut
+
+package TTDiffApp;
+use IO::File;
+use Template::Parser;
+use Text::Diff;
+
+sub new {
+    my($class, @files) = @_;
+    bless { files => \@files }, $class;
+}
+
+sub run {
+    my $self = shift;
+    my @tokens = map $self->make_tokens($_), @{$self->{files}};
+    $self->check_directives(@tokens);
+}
+
+sub make_tokens {
+    my($self, $file) = @_;
+    my $text = $self->slurp($file);
+    my $parser = Template::Parser->new;
+    my $tokens = $parser->split_text($text);
+    return [ grep ref, @$tokens ]; # refernce only
+}
+
+sub slurp {
+    my($self, $file) = @_;
+    my $io   = IO::File->new($file) or die "$file: $!";
+    local $/;
+    return <$io>;
+}
+
+sub check_directives {
+    my($self, @tokens) = @_;
+    my($bone1, $bone2) = map $self->make_bone($_), @tokens;
+    my $diff = diff \$bone1, \$bone2;
+    print $diff if $diff;
+}
+
+sub make_bone {
+    my($self, $token) = @_;
+    return join '', map "[% $_->[0] %]\n", @$token;
+}
+
+package main;
+
+sub usage {
+    (my $me = $0) =~ s@.*/@@;
+    warn "Usage: $me file1 file2\n";
+}
+
+@ARGV == 2 or usage(), exit;
+
+my $app = TTDiffApp->new(@ARGV);
+$app->run;
