@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 use strict;
 use vars qw($VERSION);
-$VERSION = 0.01;
+$VERSION = 0.02;
 
 =head1 NAME
 
@@ -10,6 +10,7 @@ ttdiff - find difference between structures of two TT templates
 =head1 SYNOPSIS
 
   ttdiff file1 file2
+  ttdiff --dump file
 
 =head1 DESCRIPTION
 
@@ -53,14 +54,24 @@ use Template::Parser;
 use Text::Diff;
 
 sub new {
-    my($class, @files) = @_;
-    bless { files => \@files }, $class;
+    my($class, %p) = @_;
+    bless \%p, $class;
 }
 
 sub run {
     my $self = shift;
-    my @tokens = map $self->make_tokens($_), @{$self->{files}};
-    $self->check_directives(@tokens);
+    if ($self->{dump}) {
+	$self->dump_structure;
+    } else {
+	my @tokens = map $self->make_tokens($_), @{$self->{files}};
+	$self->check_directives(@tokens);
+    }
+}
+
+sub dump_structure {
+    my $self = shift;
+    my $structure = $self->make_bone($self->make_tokens($self->{dump}));
+    print $structure;
 }
 
 sub make_tokens {
@@ -94,10 +105,13 @@ package main;
 
 sub usage {
     (my $me = $0) =~ s@.*/@@;
-    warn "Usage: $me file1 file2\n";
+    warn "Usage: $me file1 file2 / $me --dump file\n";
 }
 
 @ARGV == 2 or usage(), exit;
-
-my $app = TTDiffApp->new(@ARGV);
+my $app = $ARGV[0] eq '--dump'
+    ? TTDiffApp->new(dump => $ARGV[1])
+    : TTDiffApp->new(files => \@ARGV);
 $app->run;
+
+
